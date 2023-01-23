@@ -1,7 +1,15 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { Client, Collection, Events, GatewayIntentBits } = require("discord.js");
+const {
+  joinVoiceChannel,
+  createAudioPlayer,
+  createAudioResource,
+  VoiceConnectionStatus,
+  AudioPlayerStatus,
+} = require("@discordjs/voice");
 const { token } = require("./config.json");
+const { join } = require("node:path");
 
 const client = new Client({
   intents: [
@@ -9,6 +17,7 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildVoiceStates,
   ],
 });
 
@@ -46,29 +55,60 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 });
 
-// Sot el delbeni 3m yokfor
-
 var isReady = true;
 
-client.on("message", (message) => {
-  console.log(message);
-  if (
-    (isReady && message.content === "Kfor mn albak") ||
-    (isReady && message.content === "kfor mn albak")
-  ) {
-    console.log("I got the message");
-    isReady = false;
-    var voiceChannel = message.member.voiceChannel;
-    voiceChannel
-      .join()
-      .then((connection) => {
-        const dispatcher = connection.playFile("./audio/delbeni_kofor.ogg");
-        dispatcher.on("end", (end) => {
-          voiceChannel.leave();
-        });
-      })
-      .catch((err) => console.log(err));
-    isReady = true;
+client.on("messageCreate", (message) => {
+  // If user is not in a voice channel return error
+  if (!message.member.voice.channel) {
+    console.log("No channel detected!");
+    return;
+  }
+
+  // If the message content is as needed to the following
+  if (isReady && message.content === "delbeni kfor") {
+    // Defining the resource path and creating the audio player
+    const resource = createAudioResource("./audio/delbeni_kofor.mp3");
+    const player = createAudioPlayer();
+
+    // If the audio player started playing, log it in the console
+    player.on(AudioPlayerStatus.Playing, () => {
+      console.log("The audio player has started playing!");
+    });
+    // If an error occured, log it in the console
+    player.on("error", (error) => {
+      console.error(`Error: ${error.message} with resource`);
+    });
+
+    player.play(resource);
+
+    var voiceChannel = message.member.voice.channel;
+    const connection = joinVoiceChannel({
+      channelId: voiceChannel.id,
+      guildId: message.guildId,
+      adapterCreator: message.guild.voiceAdapterCreator,
+      selfDeaf: false,
+    });
+
+    const subscription = connection.subscribe(player);
+
+    if (!subscription) {
+      console.log("No subscription");
+    }
+    if (subscription) {
+      // Unsubscribe after 5 seconds (stop playing audio on the voice connection)
+      setTimeout(() => subscription.unsubscribe(), 30_000);
+    }
+
+    connection.on(VoiceConnectionStatus.Ready, () => {
+      console.log(
+        "The connection has entered the Ready state - ready to play audio!"
+      );
+    });
+
+    setTimeout(() => {
+      player.stop();
+      connection.destroy();
+    }, 3000);
   }
 });
 
