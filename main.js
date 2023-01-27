@@ -110,6 +110,51 @@ client.on("messageCreate", (message) => {
       connection.destroy();
     }, 3000);
   }
+  if (isReady && message.content === "mertehaa") {
+    // Defining the resource path and creating the audio player
+    const resource = createAudioResource("./audio/Mertehaaaa.ogg");
+    const player = createAudioPlayer();
+
+    // If the audio player started playing, log it in the console
+    player.on(AudioPlayerStatus.Playing, () => {
+      console.log("The audio player has started playing!");
+    });
+    // If an error occured, log it in the console
+    player.on("error", (error) => {
+      console.error(`Error: ${error.message} with resource`);
+    });
+
+    player.play(resource);
+
+    var voiceChannel = message.member.voice.channel;
+    const connection = joinVoiceChannel({
+      channelId: voiceChannel.id,
+      guildId: message.guildId,
+      adapterCreator: message.guild.voiceAdapterCreator,
+      selfDeaf: false,
+    });
+
+    const subscription = connection.subscribe(player);
+
+    if (!subscription) {
+      console.log("No subscription");
+    }
+    if (subscription) {
+      // Unsubscribe after 5 seconds (stop playing audio on the voice connection)
+      setTimeout(() => subscription.unsubscribe(), 30_000);
+    }
+
+    connection.on(VoiceConnectionStatus.Ready, () => {
+      console.log(
+        "The connection has entered the Ready state - ready to play audio!"
+      );
+    });
+
+    setTimeout(() => {
+      player.stop();
+      connection.destroy();
+    }, 3000);
+  }
 });
 
 client.login(token);
